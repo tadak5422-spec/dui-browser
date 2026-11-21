@@ -206,6 +206,25 @@ if javac_py.exists():
         print("[dui] javac -Werror removed")
     else:
         print("[dui] javac patch already applied (or pattern changed)")
+
+    # JDK 9+ me rt.jar hota hi nahi. Purana javac.py use bootclasspath me
+    # blindly add karta hai -> "No such file or directory: .../rt.jar".
+    old_rt = (
+        "    rt_jar = os.path.join(jdk_dir, 'jre', 'lib', 'rt.jar')\n"
+        "    options.bootclasspath.append(rt_jar)\n"
+    )
+    new_rt = (
+        "    rt_jar = os.path.join(jdk_dir, 'jre', 'lib', 'rt.jar')\n"
+        "    if os.path.exists(rt_jar):\n"
+        "      options.bootclasspath.append(rt_jar)\n"
+    )
+    current = read(javac_py)
+    new = current.replace(old_rt, new_rt)
+    if new != current:
+        write_if_changed(javac_py, new)
+        print("[dui] javac rt.jar existence check added")
+    else:
+        print("[dui] javac rt.jar patch already applied (or pattern changed)")
 else:
     print(f"[dui] WARN javac.py not found: {javac_py}")
 

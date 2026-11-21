@@ -64,3 +64,7 @@ disable_features = "Translate,TranslateUI,Translate2024,TranslateLanguagePicker,
 disable_android_lint = true
 treat_warnings_as_errors = false
 cc_wrapper = "ccache"
+
+# Runner par JDK 8 nahi milta; JDK 11 ke saath purana bundled errorprone
+# "Could not create the Java Virtual Machine" deta hai. Plain javac use karo.
+use_errorprone_java_compiler = false
