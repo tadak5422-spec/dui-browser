@@ -228,4 +228,44 @@ if javac_py.exists():
 else:
     print(f"[dui] WARN javac.py not found: {javac_py}")
 
+# -------------------------------------------------------------
+# 5. Android lint: purana SDK lint JDK 8 ka JAXB (javax.xml.bind)
+#    maangta hai, jo JDK 11 me nahi hota. APK banane ke liye lint
+#    zaroori nahi, isliye usse no-op bana rahe hain (outputs phir bhi
+#    likhta hai taake ninja khush rahe).
+# -------------------------------------------------------------
+lint_py = SRC / "build" / "android" / "gyp" / "lint.py"
+if lint_py.exists():
+    text = read(lint_py)
+    marker = "Dui Browser: Android lint skipped"
+    if marker in text:
+        print("[dui] lint patch already applied")
+    else:
+        old_lint = (
+            "  with build_utils.TempDir() as temp_dir:\n"
+            "    _ProcessConfigFile()\n"
+            "\n"
+            "    cmd = [\n"
+        )
+        new_lint = (
+            "  _ProcessConfigFile()\n"
+            "  # " + marker + " (JDK 11 me JAXB nahi hai).\n"
+            "  with open(result_path, 'w') as f:\n"
+            "    f.write('<issues></issues>')\n"
+            "  return\n"
+            "\n"
+            "  with build_utils.TempDir() as temp_dir:\n"
+            "    _ProcessConfigFile()\n"
+            "\n"
+            "    cmd = [\n"
+        )
+        new = text.replace(old_lint, new_lint)
+        if new != text:
+            write_if_changed(lint_py, new)
+            print("[dui] lint disabled (no-op)")
+        else:
+            print("[dui] WARN lint.py pattern not found; lint may still run")
+else:
+    print(f"[dui] WARN lint.py not found: {lint_py}")
+
 print("[dui] done")
