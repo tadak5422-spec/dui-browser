@@ -63,9 +63,21 @@ jobs:
           sudo add-apt-repository -y universe
           sudo apt-get update
           sudo apt-get install -y python-is-python3 ccache ninja-build curl unzip jq
-          sudo apt-get install -y openjdk-8-jdk-headless || sudo apt-get install -y openjdk-11-jdk-headless
           sudo apt-get install -y libncurses5 || sudo apt-get install -y libncurses6 || true
-          java -version || true
+
+      - name: Install JDK 8 (Chromium-era Java)
+        run: |
+          # Kiwi/Chromium ka Java code JDK 8 ke liye hai. Runner par JDK 11+
+          # hone se rt.jar, JAXB aur lambda bootclasspath issues aate hain.
+          curl -fsSL -o "$RUNNER_TEMP/jdk8.tar.gz" \
+            "https://api.adoptium.net/v3/binary/latest/8/ga/linux/x64/jdk/hotspot/normal/eclipse"
+          mkdir -p "$HOME/jdk8"
+          tar -xzf "$RUNNER_TEMP/jdk8.tar.gz" -C "$HOME/jdk8" --strip-components=1
+          echo "JAVA_HOME=$HOME/jdk8" >> "$GITHUB_ENV"
+          echo "$HOME/jdk8/bin" >> "$GITHUB_PATH"
+          "$HOME/jdk8/bin/java" -version
+          "$HOME/jdk8/bin/javac" -version
+          ls -lh "$HOME/jdk8/jre/lib/rt.jar"
 
       - name: Clone source
         run: |
