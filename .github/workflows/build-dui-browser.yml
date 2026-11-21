@@ -142,9 +142,9 @@ jobs:
         run: |
           export PATH="$HOME/bin:$HOME/depot_tools:$PATH"
           cd src
-          # Modern gclient khud Python 3 se chalao, lekin uske child scripts
-          # 'python' se chalte hain -> wo upar wale PyPy2 wrapper me jayenge.
-          python3 "$HOME/depot_tools/gclient" runhooks
+          # gclient ek bash wrapper hai jo andar se vpython3 chalata hai.
+          # Uske child scripts 'python' se chalte hain -> PyPy2 wrapper ka use karenge.
+          gclient runhooks
 
       - name: Generate build files
         run: |
