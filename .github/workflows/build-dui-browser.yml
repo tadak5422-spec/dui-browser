@@ -135,10 +135,27 @@ jobs:
           mkdir -p "$HOME/pypy2" "$HOME/bin"
           tar -xjf "$RUNNER_TEMP/pypy2.tar.bz2" -C "$HOME/pypy2" --strip-components=1
           ln -sf "$HOME/pypy2/bin/pypy" "$HOME/bin/python"
-          # Purane bundled depot_tools ke hooks 'vpython' / 'vpython2' maangte hain.
-          ln -sf "$HOME/pypy2/bin/pypy" "$HOME/bin/vpython"
-          ln -sf "$HOME/pypy2/bin/pypy" "$HOME/bin/vpython2"
           echo "$HOME/bin" >> "$GITHUB_PATH"
+          # Purane bundled depot_tools ke hooks 'vpython' maangte hain aur usme
+          # -p jaise flags bhi dete hain. Simple shim: flags hata kar PyPy2 chalao.
+          cat > "$HOME/bin/vpython" <<'EOF'
+#!/bin/bash
+args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -vpython-tool*) exit 0 ;;
+    -vpython*=*) shift ;;
+    -vpython*) shift 2 || shift ;;
+    -p=*) shift ;;
+    -p) shift 2 || shift ;;
+    --) shift; break ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+exec "$HOME/pypy2/bin/pypy" "${args[@]}"
+EOF
+          chmod +x "$HOME/bin/vpython"
+          cp "$HOME/bin/vpython" "$HOME/bin/vpython2"
           "$HOME/pypy2/bin/pypy" --version
           # vpython3 apne andar PATH badalta hai, isliye DEPS hooks me 'python'
           # ko direct PyPy2 path se replace karna padta hai.
