@@ -99,11 +99,13 @@ jobs:
 
       - name: Generate signing key
         run: |
+          # args.gn ka path src/out/android_arm64 se ../../keystore.jks = src/keystore.jks
           keytool -genkeypair -v \
-            -keystore keystore.jks -alias dev \
+            -keystore src/keystore.jks -alias dev \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass public_password -keypass public_password \
             -dname "cn=${APP_NAME} (unverified), ou=Actions, o=Dui Browser, c=GitHub"
+          ls -lh src/keystore.jks
 
       - name: Apply minimal Dui Browser profile
         run: |
