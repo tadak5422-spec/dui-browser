@@ -1,7 +1,8 @@
 # =============================================================
-# Dui Browser - minimal v1 profile (arm64)
-# Base: kiwibrowser/src (classic) .build/production_build_reference/args.gn
-# V1: URL bar + search + back/reload. Baaki extras band. Baad me step-by-step add karenge.
+# Dui Browser - minimal v1 (arm64)
+# Base: Kiwi official .build/android_arm/args.gn
+# Sirf zaroori changes; baaki official reference jaisa rakha hai
+# taake GN/ninja assertions na tootein.
 # =============================================================
 
 target_os = "android"
@@ -10,15 +11,12 @@ target_cpu = "arm64"
 is_debug = false
 is_java_debug = false
 
-android_channel = "stable"                 # GN assertion: default/canary/dev/beta/stable hi allowed hain
+android_channel = "stable"
 is_official_build = true
 is_component_build = false
 is_chrome_branded = false
 is_clang = true
-
-# Chhota binary: symbols aur unwind tables hataye
-symbol_level = 0
-exclude_unwind_tables = true
+symbol_level = 1
 
 use_unofficial_version_number = false
 android_default_version_code = "1"          # workflow badalta hai
@@ -27,45 +25,42 @@ android_keystore_password = "public_password"
 android_keystore_path = "../../keystore.jks"
 android_default_version_name = "Git"        # workflow badalta hai
 
-# Experiments / field trials OFF (random A-B feature popups nahi)
-fieldtrial_testing_like_official_build = false
-
+fieldtrial_testing_like_official_build = true
 icu_use_data_file = false
 enable_iterator_debugging = false
 
-# Google API keys placeholders (sign-in hatane ke baad bhi build chalna chahiye)
 google_api_key = "KIWIBROWSER"
 google_default_client_id = "42.apps.kiwibrowser.com"
 google_default_client_secret = "KIWIBROWSER_NOT_SO_SECRET"
-use_official_google_api_keys = false
+use_official_google_api_keys = true
 
-# -------------------------------------------------------------
-# Features jo RAKHE hain
-# -------------------------------------------------------------
-ffmpeg_branding = "Chrome"                  # MP3/AAC/H.264 rakho (sites kaam karein)
+# Media / codecs: official reference jaisa
+ffmpeg_branding = "Chrome"
 proprietary_codecs = true
-
-enable_extensions = false                   # V1 me extensions nahi; baad me on kar sakte hain
-enable_pdf = false                          # PDF viewer hataya (first-run se bhi nahi)
-enable_plugins = false
-enable_nacl = false
-
-# -------------------------------------------------------------
-# Features jo HATAYE hain
-# -------------------------------------------------------------
-enable_widevine = false                     # DRM hataya (Netflix etc. nahi chalenge)
-enable_mse_mpeg2ts_stream_parser = false
-enable_remoting = false
+enable_hevc_demuxing = true
+enable_ac3_eac3_audio_demuxing = true
+enable_mse_mpeg2ts_stream_parser = true
 rtc_use_h264 = false
-v8_use_external_startup_data = false        # alag .pak dependency nahi
+rtc_use_lto = false
+use_openh264 = false
 
+enable_nacl = false
+enable_wifi_display = false
+enable_google_now = true
+enable_widevine = false
+enable_remoting = false
+
+v8_use_external_startup_data = true
 update_android_aar_prebuilts = true
+use_thin_lto = true
 
-# Translate / sign-in promos / feed / cast / autofill popups band
+# V1 minimal: extensions abhi off. v1.1 me true kar denge.
+enable_extensions = false
+enable_plugins = true
+
+# Extra clutter off (safe feature flags)
 disable_features = "Translate,TranslateUI,Translate2024,TranslateLanguagePicker,MediaRouter,CastMediaRouteDialog,MediaRouterDialog,OptimizationHints,InterestFeedContentSuggestions,InterestFeedV2,SigninPromo,SigninInterceptBubble,SigninIntercept,AutofillServerCommunication,AutofillProfileEnabled,AutofillCreditCardEnabled,AutofillAddressEnabled,PasswordManagerOnboardingAndroid,ContextualSearch,ContextualSearchBox,RelatedSearchSuggestions,ChromeWhatsNewUI,PrivacySandboxSettings4,PrivacySandboxAdsAPIs,QuietPromoTabGroups,TabGroupsContinuationService,IncognitoReauthenticationAndroid"
 
 disable_android_lint = true
 treat_warnings_as_errors = false
-
-# Fast incremental builds
 cc_wrapper = "ccache"

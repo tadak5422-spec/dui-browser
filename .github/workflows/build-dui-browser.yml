@@ -179,14 +179,11 @@ jobs:
           cd src
           gn gen out/android_${{ env.ARCH }}
 
-      - name: Build (staged)
+      - name: Build APK
         run: |
           export PATH="$HOME/depot_tools:$PATH"
           cd src
-          ninja -C out/android_${{ env.ARCH }} base
-          ninja -C out/android_${{ env.ARCH }} content/public/common
-          ninja -C out/android_${{ env.ARCH }} chrome_java
-          ninja -C out/android_${{ env.ARCH }} components/version_info
+          # Sirf final target; ninja dependencies khud build karega.
           ninja -C out/android_${{ env.ARCH }} chrome_public_apk
 
       - name: Collect APK
