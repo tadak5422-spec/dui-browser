@@ -1,0 +1,187 @@
+name: Build Dui Browser (arm64)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: 'Kiwi/Chromium source repo URL'
+        required: false
+        default: 'https://github.com/kiwibrowser/src.git'
+      source_ref:
+        description: 'Branch / tag'
+        required: false
+        default: 'master'
+      app_name:
+        description: 'App name'
+        required: false
+        default: 'Dui Browser'
+      package_name:
+        description: 'Android package ID'
+        required: false
+        default: 'com.dui.browser'
+      make_release:
+        description: 'Create draft release? (yes/no)'
+        required: false
+        default: 'no'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dui-browser-arm64
+  cancel-in-progress: false
+
+env:
+  ARCH: arm64
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CC: ccache clang -Qunused-arguments
+  CXX: ccache clang++ -Qunused-arguments
+  APP_NAME: ${{ github.event.inputs.app_name || 'Dui Browser' }}
+  PACKAGE_NAME: ${{ github.event.inputs.package_name || 'com.dui.browser' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          docker rmi $(docker images -q) 2>/dev/null || true
+          df -h
+
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo add-apt-repository -y universe
+          sudo apt-get update
+          sudo apt-get install -y python-is-python3 ccache ninja-build curl unzip jq
+          sudo apt-get install -y openjdk-8-jdk-headless || sudo apt-get install -y openjdk-11-jdk-headless
+          sudo apt-get install -y libncurses5 || sudo apt-get install -y libncurses6 || true
+          java -version || true
+
+      - name: Clone source
+        run: |
+          git clone --depth=1 --branch "${{ github.event.inputs.source_ref || 'master' }}" \
+            "${{ github.event.inputs.source_repo || 'https://github.com/kiwibrowser/src.git' }}" src
+          echo "SOURCE_COMMIT=$(git -C src rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Setup depot_tools and CIPD dependencies
+        run: |
+          git clone --depth=1 https://chromium.googlesource.com/chromium/tools/depot_tools.git "$HOME/depot_tools"
+          echo "$HOME/depot_tools" >> "$GITHUB_PATH"
+          git clone --depth=1 https://github.com/kiwibrowser/dependencies.git .cipd
+          cp .cipd/.gclient ./
+          cp .cipd/.gclient_entries ./
+          ls -la .gclient .gclient_entries
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: dui-browser-ccache-${{ env.ARCH }}-${{ hashFiles('clean/args.gn', 'clean/*.py') }}-${{ github.run_id }}
+          restore-keys: |
+            dui-browser-ccache-${{ env.ARCH }}-${{ hashFiles('clean/args.gn', 'clean/*.py') }}-
+            dui-browser-ccache-${{ env.ARCH }}-
+
+      - name: Configure ccache
+        run: |
+          mkdir -p "$CCACHE_DIR"
+          ccache -M 8G
+          ccache -z
+
+      - name: Generate signing key
+        run: |
+          keytool -genkeypair -v \
+            -keystore keystore.jks -alias dev \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass public_password -keypass public_password \
+            -dname "cn=${APP_NAME} (unverified), ou=Actions, o=Dui Browser, c=GitHub"
+
+      - name: Apply minimal Dui Browser profile
+        run: |
+          python3 clean/apply_clean.py "$GITHUB_WORKSPACE/src" "$APP_NAME" "$PACKAGE_NAME"
+          python3 clean/strip_endpoints.py "$GITHUB_WORKSPACE/src"
+          mkdir -p src/out/android_${{ env.ARCH }}
+          cp clean/args.gn src/out/android_${{ env.ARCH }}/args.gn
+          BUILD_DATE=$(date '+%y%m%d')
+          sed -i "s/android_default_version_name = \"Git\"/android_default_version_name = \"${BUILD_DATE}Gen${{ github.run_id }}\"/" src/out/android_${{ env.ARCH }}/args.gn
+          sed -i "s/android_default_version_code = \"1\"/android_default_version_code = \"${BUILD_DATE}2\"/" src/out/android_${{ env.ARCH }}/args.gn
+          echo '---- final args.gn ----'
+          cat src/out/android_${{ env.ARCH }}/args.gn
+
+      - name: Install Chromium build deps
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          cd src
+          bash install-build-deps.sh --no-chromeos-fonts
+          build/linux/sysroot_scripts/install-sysroot.py --arch=i386
+          build/linux/sysroot_scripts/install-sysroot.py --arch=amd64
+
+      - name: gclient runhooks
+        run: |
+          export PATH="$HOME/depot_tools:$PATH"
+          cd src
+          gclient runhooks
+
+      - name: Generate build files
+        run: |
+          export PATH="$HOME/depot_tools:$PATH"
+          cd src
+          gn gen out/android_${{ env.ARCH }}
+
+      - name: Build (staged)
+        run: |
+          export PATH="$HOME/depot_tools:$PATH"
+          cd src
+          ninja -C out/android_${{ env.ARCH }} base
+          ninja -C out/android_${{ env.ARCH }} content/public/common
+          ninja -C out/android_${{ env.ARCH }} chrome_java
+          ninja -C out/android_${{ env.ARCH }} components/version_info
+          ninja -C out/android_${{ env.ARCH }} chrome_public_apk
+
+      - name: Collect APK
+        run: |
+          APK=$(find src/out/android_${{ env.ARCH }}/apks -maxdepth 1 -name '*.apk' | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "ERROR: no APK produced"; find src/out/android_${{ env.ARCH }}/apks -maxdepth 1 || true; exit 1
+          fi
+          cp "$APK" dui-browser-arm64.apk
+          ls -lh dui-browser-arm64.apk
+          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
+
+      - name: Save ccache
+        if: always()
+        continue-on-error: true
+        run: ccache -s || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dui-browser-arm64
+          path: dui-browser-arm64.apk
+          if-no-files-found: error
+
+      - name: Draft release (optional)
+        if: ${{ github.event.inputs.make_release == 'yes' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dui-${{ github.run_id }}
+          name: Dui Browser ${{ github.run_id }}
+          draft: true
+          prerelease: true
+          files: dui-browser-arm64.apk
+          body: |
+            Dui Browser build (arm64, minimal v1)
+            - Source: ${{ env.SOURCE_COMMIT }}
+            - App: ${{ env.APP_NAME }}
+            - Package: ${{ env.PACKAGE_NAME }}
+            - Build: ${{ github.run_id }}
