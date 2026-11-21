@@ -10,7 +10,7 @@ target_cpu = "arm64"
 is_debug = false
 is_java_debug = false
 
-android_channel = "dui"
+android_channel = "stable"                 # GN assertion: default/canary/dev/beta/stable hi allowed hain
 is_official_build = true
 is_component_build = false
 is_chrome_branded = false
