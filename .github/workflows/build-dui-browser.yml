@@ -137,6 +137,11 @@ jobs:
           ln -sf "$HOME/pypy2/bin/pypy" "$HOME/bin/python"
           echo "$HOME/bin" >> "$GITHUB_PATH"
           "$HOME/pypy2/bin/pypy" --version
+          # vpython3 apne andar PATH badalta hai, isliye DEPS hooks me 'python'
+          # ko direct PyPy2 path se replace karna padta hai.
+          sed -i "s#'python',#'${HOME}/pypy2/bin/pypy',#g" src/DEPS
+          printf 'DEPS python2 hooks: '
+          grep -c "pypy2/bin/pypy" src/DEPS || true
 
       - name: gclient runhooks
         run: |
