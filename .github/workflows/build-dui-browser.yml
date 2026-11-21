@@ -146,9 +146,10 @@ jobs:
       - name: gclient runhooks
         run: |
           export PATH="$HOME/bin:$HOME/depot_tools:$PATH"
+          # vpython3 apna venv bana kar 'python' ko override karta hai. Bypass karke
+          # system python3 se gclient chalao, to nested 'python' calls PyPy2 par jayenge.
+          export VPYTHON_BYPASS="manually managed python not supported by chrome operations"
           cd src
-          # gclient ek bash wrapper hai jo andar se vpython3 chalata hai.
-          # Uske child scripts 'python' se chalte hain -> PyPy2 wrapper ka use karenge.
           gclient runhooks
 
       - name: Generate build files
