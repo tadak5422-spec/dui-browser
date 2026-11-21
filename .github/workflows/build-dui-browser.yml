@@ -135,6 +135,9 @@ jobs:
           mkdir -p "$HOME/pypy2" "$HOME/bin"
           tar -xjf "$RUNNER_TEMP/pypy2.tar.bz2" -C "$HOME/pypy2" --strip-components=1
           ln -sf "$HOME/pypy2/bin/pypy" "$HOME/bin/python"
+          # Purane bundled depot_tools ke hooks 'vpython' / 'vpython2' maangte hain.
+          ln -sf "$HOME/pypy2/bin/pypy" "$HOME/bin/vpython"
+          ln -sf "$HOME/pypy2/bin/pypy" "$HOME/bin/vpython2"
           echo "$HOME/bin" >> "$GITHUB_PATH"
           "$HOME/pypy2/bin/pypy" --version
           # vpython3 apne andar PATH badalta hai, isliye DEPS hooks me 'python'
