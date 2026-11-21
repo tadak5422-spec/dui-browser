@@ -189,4 +189,24 @@ if manifest.exists():
 else:
     print(f"[dui] WARN manifest not found: {manifest}")
 
+# -------------------------------------------------------------
+# 4. Java: old Chromium JDK 8 ke saath test hua tha. Runner par JDK 17
+#    "-source 8" warning deta hai aur -Werror use error bana deta hai.
+#    Warning ko fatal na hone dein.
+# -------------------------------------------------------------
+javac_py = SRC / "build" / "android" / "gyp" / "javac.py"
+if javac_py.exists():
+    text = read(javac_py)
+    new = text.replace(
+        "javac_cmd.extend(['-Xlint:unchecked', '-Werror'])",
+        "javac_cmd.extend(['-Xlint:unchecked'])",
+    )
+    if new != text:
+        write_if_changed(javac_py, new)
+        print("[dui] javac -Werror removed")
+    else:
+        print("[dui] javac patch already applied (or pattern changed)")
+else:
+    print(f"[dui] WARN javac.py not found: {javac_py}")
+
 print("[dui] done")
