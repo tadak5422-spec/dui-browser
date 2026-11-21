@@ -123,8 +123,8 @@ jobs:
         run: |
           cd src
           bash install-build-deps.sh --no-chromeos-fonts
-          build/linux/sysroot_scripts/install-sysroot.py --arch=i386
-          build/linux/sysroot_scripts/install-sysroot.py --arch=amd64
+          # Kiwi classic ke purane sysroot scripts Python 2 hain; Android arm64
+          # build ke liye inki zarurat nahi, isliye skip.
 
       - name: gclient runhooks
         run: |
