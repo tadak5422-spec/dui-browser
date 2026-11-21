@@ -268,4 +268,44 @@ if lint_py.exists():
 else:
     print(f"[dui] WARN lint.py not found: {lint_py}")
 
+# -------------------------------------------------------------
+# 6. policy writer: PyPy2 me dict iteration order alag hoti hai.
+#    Original code backslash ko apostrophe ke baad escape karta hai,
+#    jisse "\\'" ban jata hai aur aapt error deta hai.
+#    Escape order fix karo: backslash -> apostrophe -> quote -> XML.
+# -------------------------------------------------------------
+policy_writer = (
+    SRC / "components" / "policy" / "tools" / "template_writers" /
+    "writers" / "android_policy_writer.py"
+)
+if policy_writer.exists():
+    text = read(policy_writer)
+    marker = "Dui Browser: PyPy2 dict order"
+    if marker in text:
+        print("[dui] policy writer patch already applied")
+    else:
+        new_escape = r'''  # Dui Browser: PyPy2 dict order doubled backslashes before apostrophes.
+  # Fixed order: backslash, apostrophe, quote, then XML escaping.
+  resource = resource.replace('\\', '\\\\')
+  resource = resource.replace("'", "\\'")
+  resource = resource.replace('"', '\\"')
+  return xml_escape.escape(resource)'''
+        lines = text.splitlines(True)
+        new_lines = []
+        replaced = False
+        for line in lines:
+            if line.strip().startswith("return xml_escape.escape(resource,"):
+                new_lines.append(new_escape + ("\n" if line.endswith("\n") else ""))
+                replaced = True
+            else:
+                new_lines.append(line)
+        if replaced:
+            new = "".join(new_lines)
+            write_if_changed(policy_writer, new)
+            print("[dui] policy resource escaping fixed")
+        else:
+            print("[dui] WARN policy writer pattern not found")
+else:
+    print(f"[dui] WARN policy writer not found: {policy_writer}")
+
 print("[dui] done")
