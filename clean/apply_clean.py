@@ -34,51 +34,42 @@ def read(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
-def remove_xml_item(text: str, item_id: str):
-    """Remove an <item android:id="@+id/<item_id>" ...> block, nested-safe."""
+def hide_xml_item(text: str, item_id: str):
+    """Hide a menu <item> instead of deleting it.
+
+    Java code still references R.id.<item_id>, so deleting the item breaks
+    javac ("cannot find symbol"). Keeping the ID declared but invisible keeps
+    both compilation and runtime (menu.findItem(...).setVisible(...)) safe.
+    """
     marker = 'android:id="@+id/%s"' % item_id
     idx = text.find(marker)
     if idx == -1:
         return text, False
 
     start = text.rfind("<item", 0, idx)
-    if start == -1:
-        return text, False
-
     tag_end = text.find(">", idx)
-    if tag_end == -1:
+    if start == -1 or tag_end == -1:
         return text, False
 
-    if text[tag_end - 1] == "/":  # <item ... />
-        end = tag_end + 1
+    opening = text[start:tag_end]
+    if re.search(r'android:visible\s*=\s*"[^"]*"', opening):
+        new_opening, n = re.subn(
+            r'android:visible\s*=\s*"[^"]*"',
+            'android:visible="false"',
+            opening,
+            count=1,
+        )
     else:
-        depth = 0
-        pos = tag_end + 1
-        end = -1
-        while pos < len(text):
-            nxt_open = text.find("<item", pos)
-            nxt_close = text.find("</item>", pos)
-            if nxt_close == -1:
-                break
-            if nxt_open != -1 and nxt_open < nxt_close:
-                gt = text.find(">", nxt_open)
-                if gt == -1:
-                    break
-                # Self-closing child (<item ... />) does not open a block.
-                if text[gt - 1] != "/":
-                    depth += 1
-                pos = gt + 1
-            else:
-                if depth == 0:
-                    end = nxt_close + len("</item>")
-                    break
-                depth -= 1
-                pos = nxt_close + len("</item>")
-        if end == -1:
-            return text, False
+        if opening.rstrip().endswith("/"):
+            pos = opening.rfind("/")
+            new_opening = opening[:pos] + ' android:visible="false"' + opening[pos:]
+        else:
+            new_opening = opening + ' android:visible="false"'
+        n = 1
 
-    line_start = text.rfind("\n", 0, start) + 1
-    return text[:line_start] + text[end:], True
+    if not n:
+        return text, False
+    return text[:start] + new_opening + text[tag_end:], True
 
 
 def remove_xml_tag(text: str, tag: str, name_fragment: str):
@@ -138,7 +129,9 @@ else:
     print(f"[dui] WARN BUILD.gn not found: {build_gn}")
 
 # -------------------------------------------------------------
-# 2. Menu clutter
+# 2. Menu clutter: hide, don't delete.
+#    Java code (ChromeActivity, AppMenu, AppMenuPropertiesDelegate, ...)
+#    still uses these R.id values, so deleting the <item> breaks javac.
 # -------------------------------------------------------------
 REMOVE_IDS = [
     "update_menu_id",                 # update check
@@ -154,13 +147,13 @@ REMOVE_IDS = [
 menu = res_chromium.parent / "res" / "menu" / "main_menu.xml"
 if menu.exists():
     text = read(menu)
-    removed = []
+    hidden = []
     for item_id in REMOVE_IDS:
-        text, ok = remove_xml_item(text, item_id)
+        text, ok = hide_xml_item(text, item_id)
         if ok:
-            removed.append(item_id)
+            hidden.append(item_id)
     write_if_changed(menu, text)
-    print(f"[dui] menu removed: {', '.join(removed) if removed else '(none / already clean)'}")
+    print(f"[dui] menu hidden: {', '.join(hidden) if hidden else '(none / already clean)'}")
 else:
     print(f"[dui] WARN menu not found: {menu}")
 
