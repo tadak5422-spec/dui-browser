@@ -126,11 +126,25 @@ jobs:
           # Kiwi classic ke purane sysroot scripts Python 2 hain; Android arm64
           # build ke liye inki zarurat nahi, isliye skip.
 
+      - name: Install Python 2 for legacy Kiwi hooks
+        run: |
+          # Kiwi classic ke kuch build scripts abhi bhi Python 2 hain.
+          # PyPy2 portable binary use karte hain, system Python 3 ko chhue bina.
+          curl -fsSL -o "$RUNNER_TEMP/pypy2.tar.bz2" \
+            https://downloads.python.org/pypy/pypy2.7-v7.3.15-linux64.tar.bz2
+          mkdir -p "$HOME/pypy2" "$HOME/bin"
+          tar -xjf "$RUNNER_TEMP/pypy2.tar.bz2" -C "$HOME/pypy2" --strip-components=1
+          ln -sf "$HOME/pypy2/bin/pypy" "$HOME/bin/python"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          "$HOME/pypy2/bin/pypy" --version
+
       - name: gclient runhooks
         run: |
-          export PATH="$HOME/depot_tools:$PATH"
+          export PATH="$HOME/bin:$HOME/depot_tools:$PATH"
           cd src
-          gclient runhooks
+          # Modern gclient khud Python 3 se chalao, lekin uske child scripts
+          # 'python' se chalte hain -> wo upar wale PyPy2 wrapper me jayenge.
+          python3 "$HOME/depot_tools/gclient" runhooks
 
       - name: Generate build files
         run: |
